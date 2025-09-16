@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Calculadora Linden Dollar</title>
+  <title>Linden Dollar Calculator</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #121212; /* fundo dark */
+      background: #121212; /* dark background */
       color: #fff;
       display: flex;
       justify-content: center;
@@ -82,8 +82,8 @@
 </head>
 <body>
   <div class="dashboard">
-    <h1>💠 Calculadora Linden Dollar</h1>
-    <input type="text" id="lindenInput" placeholder="Digite os L$" readonly />
+    <h1>💠 Linden Dollar Calculator</h1>
+    <input type="text" id="lindenInput" placeholder="Enter L$ amount" readonly />
     <div class="keypad">
       <button onclick="addNum('7')">7</button>
       <button onclick="addNum('8')">8</button>
@@ -98,16 +98,16 @@
       <button onclick="backspace()">⌫</button>
       <button onclick="clearInput()">C</button>
     </div>
-    <button style="margin-top:15px;" onclick="calcular()">Calcular</button>
+    <button style="margin-top:15px;" onclick="calcular()">Convert</button>
     <div class="result" id="resultado">
-      Digite um valor em L$ para converter
+      Enter a value in L$ to convert
     </div>
     <div class="small" id="cotacaoInfo"></div>
   </div>
 
   <script>
     let cotacaoDolar = null;
-    const taxaLindenBRL = 0.017; // valor médio de referência: 1 L$ ≈ R$0,017
+    const taxaLindenBRL = 0.017; // reference value: 1 L$ ≈ R$0.017
 
     async function obterCotacao() {
       try {
@@ -115,10 +115,10 @@
         const data = await resp.json();
         cotacaoDolar = parseFloat(data.USDBRL.bid);
         document.getElementById("cotacaoInfo").innerText =
-          `Cotação atual do dólar: R$ ${cotacaoDolar.toFixed(2)}`;
+          `Current USD exchange rate: R$ ${cotacaoDolar.toFixed(2)}`;
       } catch (e) {
         document.getElementById("cotacaoInfo").innerText =
-          "Erro ao obter cotação do dólar.";
+          "Error fetching USD exchange rate.";
       }
     }
 
@@ -139,11 +139,11 @@
     function calcular() {
       const linden = parseFloat(document.getElementById("lindenInput").value);
       if (isNaN(linden) || linden <= 0) {
-        document.getElementById("resultado").innerText = "Digite um valor válido em L$";
+        document.getElementById("resultado").innerText = "Enter a valid L$ amount";
         return;
       }
       if (!cotacaoDolar) {
-        document.getElementById("resultado").innerText = "Aguarde carregar a cotação...";
+        document.getElementById("resultado").innerText = "Please wait, loading exchange rate...";
         return;
       }
 
