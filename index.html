@@ -6,7 +6,7 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: linear-gradient(135deg, #1abc9c, #16a085);
+      background: #121212; /* fundo dark */
       color: #fff;
       display: flex;
       justify-content: center;
@@ -109,7 +109,6 @@
     let cotacaoDolar = null;
     const taxaLindenBRL = 0.017; // valor médio de referência: 1 L$ ≈ R$0,017
 
-    // Buscar cotação do dólar em tempo real
     async function obterCotacao() {
       try {
         const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
@@ -123,24 +122,20 @@
       }
     }
 
-    // Adicionar número ao input
     function addNum(num) {
       const input = document.getElementById("lindenInput");
       input.value += num;
     }
 
-    // Apagar último dígito
     function backspace() {
       const input = document.getElementById("lindenInput");
       input.value = input.value.slice(0, -1);
     }
 
-    // Limpar input
     function clearInput() {
       document.getElementById("lindenInput").value = "";
     }
 
-    // Calcular valores
     function calcular() {
       const linden = parseFloat(document.getElementById("lindenInput").value);
       if (isNaN(linden) || linden <= 0) {
@@ -162,7 +157,6 @@
       `;
     }
 
-    // Permitir digitação pelo teclado físico
     document.addEventListener("keydown", (e) => {
       const input = document.getElementById("lindenInput");
       if (!isNaN(e.key)) {
@@ -174,7 +168,6 @@
       }
     });
 
-    // Carregar cotação ao abrir
     obterCotacao();
   </script>
 </body>
