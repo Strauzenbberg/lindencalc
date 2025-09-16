@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Calculadora Linden Dollar</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #1abc9c, #16a085);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .dashboard {
+      background: #2c3e50;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+      width: 380px;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 22px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 20px;
+      font-size: 18px;
+      text-align: right;
+    }
+    button {
+      background: #1abc9c;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #16a085;
+    }
+    .result {
+      margin-top: 20px;
+      font-size: 18px;
+      background: #34495e;
+      padding: 15px;
+      border-radius: 8px;
+    }
+    .small {
+      font-size: 13px;
+      margin-top: 10px;
+      color: #bdc3c7;
+    }
+    .keypad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .keypad button {
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 8px;
+      background: #2980b9;
+    }
+    .keypad button:hover {
+      background: #3498db;
+    }
+    .wide {
+      grid-column: span 2;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>💠 Calculadora Linden Dollar</h1>
+    <input type="text" id="lindenInput" placeholder="Digite os L$" readonly />
+    <div class="keypad">
+      <button onclick="addNum('7')">7</button>
+      <button onclick="addNum('8')">8</button>
+      <button onclick="addNum('9')">9</button>
+      <button onclick="addNum('4')">4</button>
+      <button onclick="addNum('5')">5</button>
+      <button onclick="addNum('6')">6</button>
+      <button onclick="addNum('1')">1</button>
+      <button onclick="addNum('2')">2</button>
+      <button onclick="addNum('3')">3</button>
+      <button onclick="addNum('0')" class="wide">0</button>
+      <button onclick="backspace()">⌫</button>
+      <button onclick="clearInput()">C</button>
+    </div>
+    <button style="margin-top:15px;" onclick="calcular()">Calcular</button>
+    <div class="result" id="resultado">
+      Digite um valor em L$ para converter
+    </div>
+    <div class="small" id="cotacaoInfo"></div>
+  </div>
+
+  <script>
+    let cotacaoDolar = null;
+    const taxaLindenBRL = 0.017; // valor médio de referência: 1 L$ ≈ R$0,017
+
+    // Buscar cotação do dólar em tempo real
+    async function obterCotacao() {
+      try {
+        const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
+        const data = await resp.json();
+        cotacaoDolar = parseFloat(data.USDBRL.bid);
+        document.getElementById("cotacaoInfo").innerText =
+          `Cotação atual do dólar: R$ ${cotacaoDolar.toFixed(2)}`;
+      } catch (e) {
+        document.getElementById("cotacaoInfo").innerText =
+          "Erro ao obter cotação do dólar.";
+      }
+    }
+
+    // Adicionar número ao input
+    function addNum(num) {
+      const input = document.getElementById("lindenInput");
+      input.value += num;
+    }
+
+    // Apagar último dígito
+    function backspace() {
+      const input = document.getElementById("lindenInput");
+      input.value = input.value.slice(0, -1);
+    }
+
+    // Limpar input
+    function clearInput() {
+      document.getElementById("lindenInput").value = "";
+    }
+
+    // Calcular valores
+    function calcular() {
+      const linden = parseFloat(document.getElementById("lindenInput").value);
+      if (isNaN(linden) || linden <= 0) {
+        document.getElementById("resultado").innerText = "Digite um valor válido em L$";
+        return;
+      }
+      if (!cotacaoDolar) {
+        document.getElementById("resultado").innerText = "Aguarde carregar a cotação...";
+        return;
+      }
+
+      const valorBRL = linden * taxaLindenBRL;
+      const valorUSD = valorBRL / cotacaoDolar;
+
+      document.getElementById("resultado").innerHTML = `
+        🔹 ${linden} L$<br>
+        💵 R$ ${valorBRL.toFixed(2)}<br>
+        💲 ${valorUSD.toFixed(2)} USD
+      `;
+    }
+
+    // Permitir digitação pelo teclado físico
+    document.addEventListener("keydown", (e) => {
+      const input = document.getElementById("lindenInput");
+      if (!isNaN(e.key)) {
+        input.value += e.key;
+      } else if (e.key === "Backspace") {
+        backspace();
+      } else if (e.key === "Enter") {
+        calcular();
+      }
+    });
+
+    // Carregar cotação ao abrir
+    obterCotacao();
+  </script>
+</body>
+</html>
