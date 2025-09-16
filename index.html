@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Linden Dollar Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,31 +25,54 @@
     }
     h1 { margin-bottom: 20px; font-size: 22px; }
     input {
-      width: 100%; padding: 10px; border-radius: 6px; border: none;
-      margin-bottom: 20px; font-size: 18px; text-align: right;
+      width: 100%;
+      padding: 10px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 20px;
+      font-size: 18px;
+      text-align: right;
+      background: #223447;
+      color: #fff;
     }
     button {
-      background: #1abc9c; border: none; padding: 12px 20px;
-      border-radius: 6px; color: #fff; font-size: 16px;
-      cursor: pointer; transition: background 0.3s;
+      background: #1abc9c;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 6px;
+      color: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
     }
     button:hover { background: #16a085; }
     .result {
-      margin-top: 20px; font-size: 18px; background: #34495e;
-      padding: 15px; border-radius: 8px;
+      margin-top: 20px;
+      font-size: 18px;
+      background: #34495e;
+      padding: 15px;
+      border-radius: 8px;
+      min-height: 70px;
     }
     .small { font-size: 13px; margin-top: 10px; color: #bdc3c7; }
     .keypad {
-      display: grid; grid-template-columns: repeat(3, 1fr);
-      gap: 10px; margin-top: 15px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-top: 15px;
     }
     .keypad button {
-      padding: 15px; font-size: 18px; border-radius: 8px; background: #2980b9;
+      padding: 15px;
+      font-size: 18px;
+      border-radius: 8px;
+      background: #2980b9;
     }
     .keypad button:hover { background: #3498db; }
     .wide { grid-column: span 2; }
     .warn { color: #f1c40f; }
     .err { color: #e67e22; }
+    /* Oculta a linha de cotações do usuário final, mas mantém no DOM */
+    #cotacaoInfo { display: none; }
   </style>
 </head>
 <body>
@@ -70,31 +94,28 @@
       <button onclick="clearInput()">C</button>
     </div>
     <button style="margin-top:15px;" onclick="calculate()">Convert</button>
-    <div class="result" id="resultado">
-      Enter a value in L$ to convert
-    </div>
+    <div class="result" id="resultado">Enter a value in L$ to convert</div>
     <div class="small" id="cotacaoInfo"></div>
     <div class="small" id="lastUpdate"></div>
     <div class="small warn" id="notes"></div>
   </div>
 
   <script>
-    let usdBrl = null;      // USD in BRL (from AwesomeAPI)
-    let lindenBrl = null;   // 1 L$ in BRL (from currencyrate.today or fallback)
-    let lastSource = "";    // Track which source provided L$ rate
+    let usdBrl = null;      // 1 USD in BRL (from AwesomeAPI)
+    let lindenBrl = null;   // 1 L$ in BRL (from primary or fallback)
+    let lastSource = "";    // Which source provided L$ rate
 
-    // Fetch USD/BRL from AwesomeAPI (reliable FX source)
+    // Fetch USD/BRL from AwesomeAPI
     async function fetchUsdBrl() {
       const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
       const data = await resp.json();
       return parseFloat(data.USDBRL.bid);
     }
 
-    // Primary L$→BRL: currencyrate.today (PT page shows "1 LD = R$0.017")
+    // Primary: currencyrate.today (PT page with "1 LD = R$0.017")
     async function fetchLindenBrl_primary() {
-      const resp = await fetch("https://ld.pt.currencyrate.today/brl");
+      const resp = await fetch("https://ld.pt.currencyrate.today/brl", { credentials: "omit" });
       const html = await resp.text();
-      // Regex looks for "1 ... = R$0.017" near "Linden Dollar"
       const match = html.match(/1\s*(?:Linden\s*Dollar|LD)[^=]*=\s*R\$\s*(\d+,\d+|\d+\.\d+)/i);
       if (!match) throw new Error("Primary source parse failed");
       const val = parseFloat(match[1].replace(",", "."));
@@ -103,14 +124,12 @@
       return val;
     }
 
-    // Fallback L$ rate via Forbes converter page (parse 1 BRL = X LD, then invert)
+    // Fallback: Forbes BRL→LD, then invert to get 1 LD in BRL
     async function fetchLindenBrl_fallback() {
-      const resp = await fetch("https://www.forbes.com/advisor/money-transfer/currency-converter/brl-ld/");
+      const resp = await fetch("https://www.forbes.com/advisor/money-transfer/currency-converter/brl-ld/", { credentials: "omit" });
       const html = await resp.text();
-      // Try to find "1 BRL = N LD" (may appear in text or meta)
       let match = html.match(/1\s*BRL\s*=\s*(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d+))?\s*LD/i);
       if (!match) {
-        // Secondary pattern in case of HTML entities or different spacing
         match = html.match(/1\s*BRL[^0-9]+(\d+(?:\.\d+)?)[^A-Z]+LD/i);
       }
       if (!match) throw new Error("Fallback source parse failed");
@@ -119,23 +138,19 @@
       const ldPerBrl = parseFloat(numStr.replace(/,/g, ""));
       if (!isFinite(ldPerBrl) || ldPerBrl <= 0) throw new Error("Fallback invalid value");
 
-      // We want 1 L$ in BRL, so invert BRL→LD: 1 BRL = X LD => 1 LD = 1 / X BRL
       const l$inBrl = 1 / ldPerBrl;
       lastSource = "Forbes converter";
       return l$inBrl;
     }
 
-    // Unified fetch that tries primary, then fallback
+    // Try primary; if it fails, try fallback
     async function fetchLindenBrl() {
-      // Try primary
       try {
         return await fetchLindenBrl_primary();
       } catch (e1) {
-        // Try fallback
         try {
           return await fetchLindenBrl_fallback();
         } catch (e2) {
-          // As a last resort, keep previous lindenBrl (if any) or null
           throw new Error("All L$ sources failed");
         }
       }
@@ -150,15 +165,16 @@
         usdBrl = usd;
         lindenBrl = ldl;
 
+        // Atualiza info (oculto ao usuário final)
         info.textContent = `1 L$ ≈ R$ ${lindenBrl.toFixed(3)} | 1 USD = R$ ${usdBrl.toFixed(2)} (source: ${lastSource})`;
 
+        // Data/hora da última atualização
         const now = new Date();
         const formatted = now.toLocaleString("pt-BR", {
           day: "2-digit", month: "2-digit", year: "numeric",
           hour: "2-digit", minute: "2-digit", second: "2-digit"
         });
         document.getElementById("lastUpdate").textContent = `Last update: ${formatted}`;
-
       } catch (e) {
         info.textContent = "Error fetching exchange rates.";
         notes.textContent = "Tip: Try again in a moment, or check your connection.";
@@ -198,6 +214,7 @@
       `;
     }
 
+    // Suporte a teclado físico: números, backspace e Enter = Convert
     document.addEventListener("keydown", (e) => {
       const input = document.getElementById("lindenInput");
       if (!isNaN(e.key)) {
@@ -209,9 +226,8 @@
       }
     });
 
-    // Initial fetch
+    // Busca inicial e atualização automática a cada 5 minutos
     fetchRates();
-    // Auto-refresh every 5 minutes
     setInterval(fetchRates, 300000);
   </script>
 </body>
