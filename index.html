@@ -6,7 +6,7 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #121212; /* dark background */
+      background: #121212;
       color: #fff;
       display: flex;
       justify-content: center;
@@ -22,62 +22,33 @@
       width: 380px;
       text-align: center;
     }
-    h1 {
-      margin-bottom: 20px;
-      font-size: 22px;
-    }
+    h1 { margin-bottom: 20px; font-size: 22px; }
     input {
-      width: 100%;
-      padding: 10px;
-      border-radius: 6px;
-      border: none;
-      margin-bottom: 20px;
-      font-size: 18px;
-      text-align: right;
+      width: 100%; padding: 10px; border-radius: 6px; border: none;
+      margin-bottom: 20px; font-size: 18px; text-align: right;
     }
     button {
-      background: #1abc9c;
-      border: none;
-      padding: 12px 20px;
-      border-radius: 6px;
-      color: #fff;
-      font-size: 16px;
-      cursor: pointer;
-      transition: background 0.3s;
+      background: #1abc9c; border: none; padding: 12px 20px;
+      border-radius: 6px; color: #fff; font-size: 16px;
+      cursor: pointer; transition: background 0.3s;
     }
-    button:hover {
-      background: #16a085;
-    }
+    button:hover { background: #16a085; }
     .result {
-      margin-top: 20px;
-      font-size: 18px;
-      background: #34495e;
-      padding: 15px;
-      border-radius: 8px;
+      margin-top: 20px; font-size: 18px; background: #34495e;
+      padding: 15px; border-radius: 8px;
     }
-    .small {
-      font-size: 13px;
-      margin-top: 10px;
-      color: #bdc3c7;
-    }
+    .small { font-size: 13px; margin-top: 10px; color: #bdc3c7; }
     .keypad {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-top: 15px;
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 10px; margin-top: 15px;
     }
     .keypad button {
-      padding: 15px;
-      font-size: 18px;
-      border-radius: 8px;
-      background: #2980b9;
+      padding: 15px; font-size: 18px; border-radius: 8px; background: #2980b9;
     }
-    .keypad button:hover {
-      background: #3498db;
-    }
-    .wide {
-      grid-column: span 2;
-    }
+    .keypad button:hover { background: #3498db; }
+    .wide { grid-column: span 2; }
+    .warn { color: #f1c40f; }
+    .err { color: #e67e22; }
   </style>
 </head>
 <body>
@@ -98,27 +69,99 @@
       <button onclick="backspace()">⌫</button>
       <button onclick="clearInput()">C</button>
     </div>
-    <button style="margin-top:15px;" onclick="calcular()">Convert</button>
+    <button style="margin-top:15px;" onclick="calculate()">Convert</button>
     <div class="result" id="resultado">
       Enter a value in L$ to convert
     </div>
     <div class="small" id="cotacaoInfo"></div>
+    <div class="small" id="lastUpdate"></div>
+    <div class="small warn" id="notes"></div>
   </div>
 
   <script>
-    let cotacaoDolar = null;
-    const taxaLindenBRL = 0.017; // reference value: 1 L$ ≈ R$0.017
+    let usdBrl = null;      // USD in BRL (from AwesomeAPI)
+    let lindenBrl = null;   // 1 L$ in BRL (from currencyrate.today or fallback)
+    let lastSource = "";    // Track which source provided L$ rate
 
-    async function obterCotacao() {
+    // Fetch USD/BRL from AwesomeAPI (reliable FX source)
+    async function fetchUsdBrl() {
+      const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
+      const data = await resp.json();
+      return parseFloat(data.USDBRL.bid);
+    }
+
+    // Primary L$→BRL: currencyrate.today (PT page shows "1 LD = R$0.017")
+    async function fetchLindenBrl_primary() {
+      const resp = await fetch("https://ld.pt.currencyrate.today/brl");
+      const html = await resp.text();
+      // Regex looks for "1 ... = R$0.017" near "Linden Dollar"
+      const match = html.match(/1\s*(?:Linden\s*Dollar|LD)[^=]*=\s*R\$\s*(\d+,\d+|\d+\.\d+)/i);
+      if (!match) throw new Error("Primary source parse failed");
+      const val = parseFloat(match[1].replace(",", "."));
+      if (!isFinite(val) || val <= 0) throw new Error("Primary source invalid value");
+      lastSource = "currencyrate.today";
+      return val;
+    }
+
+    // Fallback L$ rate via Forbes converter page (parse 1 BRL = X LD, then invert)
+    async function fetchLindenBrl_fallback() {
+      const resp = await fetch("https://www.forbes.com/advisor/money-transfer/currency-converter/brl-ld/");
+      const html = await resp.text();
+      // Try to find "1 BRL = N LD" (may appear in text or meta)
+      let match = html.match(/1\s*BRL\s*=\s*(\d{1,3}(?:,\d{3})*|\d+)(?:\.(\d+))?\s*LD/i);
+      if (!match) {
+        // Secondary pattern in case of HTML entities or different spacing
+        match = html.match(/1\s*BRL[^0-9]+(\d+(?:\.\d+)?)[^A-Z]+LD/i);
+      }
+      if (!match) throw new Error("Fallback source parse failed");
+
+      const numStr = (match[1] || "") + (match[2] ? "." + match[2] : "");
+      const ldPerBrl = parseFloat(numStr.replace(/,/g, ""));
+      if (!isFinite(ldPerBrl) || ldPerBrl <= 0) throw new Error("Fallback invalid value");
+
+      // We want 1 L$ in BRL, so invert BRL→LD: 1 BRL = X LD => 1 LD = 1 / X BRL
+      const l$inBrl = 1 / ldPerBrl;
+      lastSource = "Forbes converter";
+      return l$inBrl;
+    }
+
+    // Unified fetch that tries primary, then fallback
+    async function fetchLindenBrl() {
+      // Try primary
       try {
-        const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
-        const data = await resp.json();
-        cotacaoDolar = parseFloat(data.USDBRL.bid);
-        document.getElementById("cotacaoInfo").innerText =
-          `Current USD exchange rate: R$ ${cotacaoDolar.toFixed(2)}`;
+        return await fetchLindenBrl_primary();
+      } catch (e1) {
+        // Try fallback
+        try {
+          return await fetchLindenBrl_fallback();
+        } catch (e2) {
+          // As a last resort, keep previous lindenBrl (if any) or null
+          throw new Error("All L$ sources failed");
+        }
+      }
+    }
+
+    async function fetchRates() {
+      const info = document.getElementById("cotacaoInfo");
+      const notes = document.getElementById("notes");
+      notes.textContent = "";
+      try {
+        const [usd, ldl] = await Promise.all([fetchUsdBrl(), fetchLindenBrl()]);
+        usdBrl = usd;
+        lindenBrl = ldl;
+
+        info.textContent = `1 L$ ≈ R$ ${lindenBrl.toFixed(3)} | 1 USD = R$ ${usdBrl.toFixed(2)} (source: ${lastSource})`;
+
+        const now = new Date();
+        const formatted = now.toLocaleString("pt-BR", {
+          day: "2-digit", month: "2-digit", year: "numeric",
+          hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        document.getElementById("lastUpdate").textContent = `Last update: ${formatted}`;
+
       } catch (e) {
-        document.getElementById("cotacaoInfo").innerText =
-          "Error fetching USD exchange rate.";
+        info.textContent = "Error fetching exchange rates.";
+        notes.textContent = "Tip: Try again in a moment, or check your connection.";
       }
     }
 
@@ -126,34 +169,32 @@
       const input = document.getElementById("lindenInput");
       input.value += num;
     }
-
     function backspace() {
       const input = document.getElementById("lindenInput");
       input.value = input.value.slice(0, -1);
     }
-
     function clearInput() {
       document.getElementById("lindenInput").value = "";
     }
 
-    function calcular() {
+    function calculate() {
       const linden = parseFloat(document.getElementById("lindenInput").value);
       if (isNaN(linden) || linden <= 0) {
         document.getElementById("resultado").innerText = "Enter a valid L$ amount";
         return;
       }
-      if (!cotacaoDolar) {
-        document.getElementById("resultado").innerText = "Please wait, loading exchange rate...";
+      if (!usdBrl || !lindenBrl) {
+        document.getElementById("resultado").innerText = "Please wait, loading exchange rates...";
         return;
       }
 
-      const valorBRL = linden * taxaLindenBRL;
-      const valorUSD = valorBRL / cotacaoDolar;
+      const valueBRL = linden * lindenBrl;
+      const valueUSD = valueBRL / usdBrl;
 
       document.getElementById("resultado").innerHTML = `
         🔹 ${linden} L$<br>
-        💵 R$ ${valorBRL.toFixed(2)}<br>
-        💲 ${valorUSD.toFixed(2)} USD
+        💵 R$ ${valueBRL.toFixed(2)}<br>
+        💲 ${valueUSD.toFixed(2)} USD
       `;
     }
 
@@ -164,11 +205,14 @@
       } else if (e.key === "Backspace") {
         backspace();
       } else if (e.key === "Enter") {
-        calcular();
+        calculate();
       }
     });
 
-    obterCotacao();
+    // Initial fetch
+    fetchRates();
+    // Auto-refresh every 5 minutes
+    setInterval(fetchRates, 300000);
   </script>
 </body>
 </html>
