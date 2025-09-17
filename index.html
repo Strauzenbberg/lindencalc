@@ -104,6 +104,7 @@
   <script>
     let usdBrl = null;      
     const lindenUsd = 0.004375; // 1 L$ = 0,004375 USD (4000 L$ = 17,5 USD)
+    let novoInput = true; // controla se deve limpar ao digitar
 
     async function fetchUsdBrl() {
       const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
@@ -129,14 +130,22 @@
 
     function addNum(num) {
       const input = document.getElementById("lindenInput");
-      input.value += num;
+      if (novoInput) {
+        input.value = num;   // substitui o valor
+        novoInput = false;   // volta ao modo normal
+      } else {
+        input.value += num;  // concatena normalmente
+      }
     }
+
     function backspace() {
       const input = document.getElementById("lindenInput");
       input.value = input.value.slice(0, -1);
     }
+
     function clearInput() {
       document.getElementById("lindenInput").value = "";
+      novoInput = true;
     }
 
     function calculate() {
@@ -158,12 +167,14 @@
         💲 ${valueUSD.toFixed(2)} USD<br>
         💵 R$ ${valueBRL.toFixed(2)}
       `;
+
+      novoInput = true; // ativa o reset para o próximo número
     }
 
     document.addEventListener("keydown", (e) => {
       const input = document.getElementById("lindenInput");
       if (!isNaN(e.key)) {
-        input.value += e.key;
+        addNum(e.key);
       } else if (e.key === "Backspace") {
         backspace();
       } else if (e.key === "Enter") {
