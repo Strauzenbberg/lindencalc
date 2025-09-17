@@ -44,6 +44,7 @@
       font-size: 16px;
       cursor: pointer;
       transition: background 0.3s;
+      margin-top: 10px;
     }
     button:hover { background: #16a085; }
     .result {
@@ -93,7 +94,7 @@
       <button onclick="backspace()">⌫</button>
       <button onclick="clearInput()">C</button>
     </div>
-    <button style="margin-top:15px;" onclick="calculate()">Converter</button>
+    <button onclick="calculate()">Converter</button>
     <div class="result" id="resultado">Digite um valor em L$ para converter</div>
     <div class="small" id="cotacaoInfo"></div>
     <div class="small" id="lastUpdate"></div>
@@ -102,7 +103,7 @@
 
   <script>
     let usdBrl = null;      
-    const lindenUsd = 0.00541; // 1 L$ = 0,00541 USD (baseado no LindeX real)
+    const lindenUsd = 0.004375; // 1 L$ = 0,004375 USD (4000 L$ = 17,5 USD)
 
     async function fetchUsdBrl() {
       const resp = await fetch("https://economia.awesomeapi.com.br/json/last/USD-BRL");
@@ -115,7 +116,6 @@
       notes.textContent = "";
       try {
         usdBrl = await fetchUsdBrl();
-
         const now = new Date();
         const formatted = now.toLocaleString("pt-BR", {
           day: "2-digit", month: "2-digit", year: "numeric",
